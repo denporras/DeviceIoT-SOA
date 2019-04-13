@@ -14,7 +14,7 @@
 #define SERVOPIN_2 2
 
 //System delay
-#define DELAY 2000
+#define DELAY 500
 
 //Variables
 const int closedWindowDegree = 0;
@@ -23,7 +23,7 @@ const int openWindowDegree = 90;
 int maxTemperature = 20;
 int maxHumidity = 60;
 int sensorSample = 0;
-int publishSample = 0;
+int publishSample = 1150;
 
 float humidity = 0;
 float temperature = 0;
@@ -40,12 +40,12 @@ char* pass = "deniol0212";
 //mqtt server
 String server = "m16.cloudmqtt.com";
 String user = "zpsqnfvh";
-String srv_pass = "PnSjOYBouNhm";
+String srvPass = "PnSjOYBouNhm";
 int port = 12771;
 
-String device_id = "house-device";
-String topic_sensor = "house/environment";
-String topic_window = "house/window";
+String deviceId = "house-device";
+String topicSensor = "house/environment";
+String topicWindow = "house/window";
 
 //Sensor and servo objects
 DHT dht(DHTPIN, DHTTYPE);
@@ -55,22 +55,13 @@ ESP_XYZ esp;
 
 //System setup
 void setup() {
-  Serial.begin(9600);
-  Serial.println(F("Test!"));
-
-  while(!Serial);
   while(!esp.connectAP(ssid, pass));
-  Serial.println("Configuracion exitosa");
 
-  //Se establece el id del dispositivo
-  esp.MQTTConfig(device_id);
+  esp.MQTTConfig(deviceId);
 
-  //Se configura el servidor destino
-  esp.MQTTSetServer(server, port, user, srv_pass);
+  esp.MQTTSetServer(server, port, user, srvPass);
 
-  //Suscripción a servidor MQTT
-  esp.MQTTSubscribe(topic_window);
- //Configuración de función de callback
+  esp.MQTTSubscribe(topicWindow);
   esp.MQTTSetCallback(mqtt_callback);
    
   dht.begin();
@@ -114,6 +105,7 @@ bool readTemperatureSensor() {
   return true;
 }
 
+//Auto control window function
 void autoControlWindows(int window) {
   bool isAuto = autoWindow[window - 1];
 
@@ -126,6 +118,7 @@ void autoControlWindows(int window) {
   }
 }
 
+//Process mqtt request 
 void processRequest(int window, int state) {
   switch (state) {
   case 0:
@@ -140,39 +133,31 @@ void processRequest(int window, int state) {
     autoWindow[window - 1] = true;
     break;
   default:
-    // statements
     break;
 }
 }
 
-//Función de callback
-//Debe retornar void y tener los mismos argumentos
+//Callback function
 void mqtt_callback(char* topic, byte* payload, unsigned int len) {
-  //Notifica en puerto UART la recepción de un mensaje
-  Serial.print("Mensaje recibido [");
-  Serial.print(topic);
-  Serial.println("] ");
 
   String response;
-  //Se imprime el mensaje caracter por caracter
   for (int i = 0; i < len; i++) {
     response.concat((char)payload[i]);
   }
   processRequest(getJsonInt(response, "window"), getJsonInt(response, "state"));
 }
 
+//Environment data publish function
 void publishSensors() {
-  String json_msg = "";
-  jsonInit(&json_msg);
-  addToJson(&json_msg, "temperature", temperature);
-  addToJson(&json_msg, "humidity", humidity); 
-  jsonClose(&json_msg);
+  String jsonMsg = "";
+  jsonInit(&jsonMsg);
+  addToJson(&jsonMsg, "temperature", temperature);
+  addToJson(&jsonMsg, "humidity", humidity); 
+  jsonClose(&jsonMsg);
 
-  bool published = esp.MQTTPublish(topic_sensor, json_msg);
-  Serial.println("Mensaje publicado: ");
-  Serial.println(published);
+  bool published = esp.MQTTPublish(topicSensor, jsonMsg);
   
-  jsonClear(&json_msg);
+  jsonClear(&jsonMsg);
 }
 
 
@@ -180,14 +165,13 @@ void publishSensors() {
 void loop() {
   delay(500);
 
-  //Se verifica que el dispositivo este conectado
   if (!esp.MQTTConnected()) {
-    //De lo contrario se conecta nuevamente
-    esp.MQTTReconnect(device_id);
+    esp.MQTTReconnect(deviceId);
   }
+
   
-  sensorSample++;
   //Read humidity and temperature
+  sensorSample++;
   if (sensorSample == 10) {
     readHumiditySensor(); 
     readTemperatureSensor();
