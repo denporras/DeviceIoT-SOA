@@ -29,8 +29,8 @@ float humidity = 0;
 float temperature = 0;
 
 bool autoWindow[] = {
-  true,
-  true
+  false,
+  false
 };
 
 //Wireless set up
