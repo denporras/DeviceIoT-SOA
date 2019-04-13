@@ -163,7 +163,7 @@ void publishSensors() {
 
 //Loop function
 void loop() {
-  delay(500);
+  delay(DELAY);
 
   if (!esp.MQTTConnected()) {
     esp.MQTTReconnect(deviceId);
